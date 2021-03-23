@@ -1,0 +1,4 @@
+run:
+  - echo "ok"
+  - echo "ok2"
+  - echo "ok3"
