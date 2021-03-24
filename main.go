@@ -1,64 +1,54 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
-	"path/filepath"
-
-	"gopkg.in/yaml.v2"
 )
+
+const executor = "/bin/sh"
 
 func getArgs() (string, []string) {
 	return os.Args[1], os.Args[2:]
 }
 
-func getPath() string {
-	path, err := os.Getwd()
-	if err != nil {
-		panic("Can not get current path")
+func run(stringCmd string) {
+	cmd := exec.Command(executor, "-c", stringCmd)
+
+	stdout, _ := cmd.StdoutPipe()
+
+	cmd.Start()
+
+	scanner := bufio.NewScanner(stdout)
+
+	for scanner.Scan() {
+		fmt.Println(scanner.Err())
+		fmt.Println(scanner.Text())
 	}
-	return path
+
+	if err := scanner.Err(); err != nil {
+		fmt.Println(err.Error())
+	}
+
+	cmd.Wait()
 }
 
-type T = map[string]([]string)
-
 func main() {
-
-	data, err := ioutil.ReadFile(
-		filepath.Join(getPath(), "stages.yaml"),
-	)
-	if err != nil {
-		panic("stages.yaml file does not exist")
-	}
-
-	t := T{}
-
-	err = yaml.Unmarshal([]byte(data), &t)
-	if err != nil {
-		panic(err)
-	}
-
+	rootPath := GetCurrentPath()
 	arg, _ := getArgs()
 
-	for i, cmd := range t[arg] {
-		stdout, err := exec.Command("/bin/sh", "-c", cmd).Output()
-		if err != nil {
-			panic(
-				fmt.Sprintf(
-					"Error in command '%v' at script number %v:\n%v",
-					arg,
-					i,
-					err.Error(),
-				),
-			)
-		}
-		fmt.Printf(
-			"%s",
-			stdout,
+	runAll := func() {
+		t := ReadYaml(
+			GetConfigPath(rootPath),
 		)
 
+		for _, cmd := range t[arg] {
+			run(cmd)
+		}
 	}
 
+	runAll()
+
+	Watch(rootPath, runAll)
 }

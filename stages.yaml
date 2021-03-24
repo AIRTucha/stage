@@ -1,4 +1,12 @@
-run:
+test:
   - echo "ok"
   - echo "ok2"
+  - ping -c 2 google.com
+  - ping google.com
+  - apt-get
   - echo "ok3"
+run:
+  - go run *.go test
+export:
+  - PATH=$PATH:/Users/alex/go/bin
+  
