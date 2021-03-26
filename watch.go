@@ -2,19 +2,22 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
 
 func waitClosing() {
 	done := make(chan bool, 1)
-
-	fmt.Println("Watch for changes...")
 	<-done
-	fmt.Println("Stop wattching.")
 }
 
-func handleChanges(watcher *fsnotify.Watcher, onChange func()) {
+func handleChanges(
+	watcher *fsnotify.Watcher,
+	initialStopSignal chan bool,
+	onChange func(stopSignal chan bool),
+) {
+	stopSignal := initialStopSignal
 	for {
 		select {
 		case event, ok := <-watcher.Events:
@@ -22,10 +25,23 @@ func handleChanges(watcher *fsnotify.Watcher, onChange func()) {
 				return
 			}
 			if event.Op&fsnotify.Write == fsnotify.Write {
-				onChange()
+				fmt.Println("Detected change")
+				select {
+				case stopSignal <- true:
+				default:
+				}
+
+				go func() {
+					time.AfterFunc(time.Second/4, func() {
+
+						stopSignal = make(chan bool)
+						onChange(stopSignal)
+					})
+
+				}()
 			}
 		case err, ok := <-watcher.Errors:
-			if ok {
+			if !ok {
 				return
 			} else {
 				Crash(err)
@@ -51,11 +67,18 @@ func addToWatcher(watcher *fsnotify.Watcher, paths []string) {
 	}
 }
 
-func Watch(path string, onChange func()) {
+func Watch(path string, stopPrev chan bool, onChange func(stopSignal chan bool)) {
 	watcher := createWatcher()
 	defer watcher.Close()
 
-	go handleChanges(watcher, onChange)
+	go handleChanges(
+		watcher,
+		stopPrev,
+		func(stopSignal chan bool) {
+			// func() { stopSignal <- true }()
+			onChange(stopSignal)
+		},
+	)
 
 	addToWatcher(
 		watcher,

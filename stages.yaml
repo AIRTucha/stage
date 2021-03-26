@@ -1,12 +1,17 @@
 test:
   - echo "ok"
   - echo "ok2"
-  - ping -c 2 google.com
-  - ping google.com
+  - ping -c 4 google.com
   - apt-get
   - echo "ok3"
+
 run:
-  - go run *.go test
+  - go run *.go test -w
+build-run:
+  - go build -o bin/stage
+  - ./bin/stage -watch test
+install:
+  - go install .
 export:
   - PATH=$PATH:/Users/alex/go/bin
   
