@@ -37,7 +37,7 @@ func run(stringCmd string, stopSignal chan bool) bool {
 	isNotCrashed := true
 
 	cmd := exec.Command(executor, "-c", stringCmd)
-
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	stdinDone := make(chan bool, 1)
 	stderrDone := make(chan bool, 1)
 
@@ -46,59 +46,56 @@ func run(stringCmd string, stopSignal chan bool) bool {
 
 	fmt.Println("\033[34m", fmt.Sprintf("> %s", stringCmd))
 	cmd.Start()
-	// "\033[35m", "Start", cmd.Process.Pid)
 
 	go func() {
-		// "\033[35m", "Wait for kill", cmd.Process.Pid)
 		isStop := <-stopSignal
 		if isStop {
-			// exec.CommandContext(
 			isNotCrashed = false
 
-			err := cmd.Process.Signal(syscall.SIGINT)
-			fmt.Println("\033[35m", "Int error: ", err)
-			err = cmd.Process.Signal(os.Interrupt)
-			fmt.Println("\033[35m", "OS Int error: ", err)
-			err = cmd.Process.Signal(syscall.SIGTERM)
-			fmt.Println("\033[35m", "Term error: ", err)
-			cmd.Process.Signal(os.Kill)
-			fmt.Println("Exit status", cmd.ProcessState.Exited())
-			fmt.Println("\033[35m", "Kill error: ", err)
-			err = cmd.Process.Kill()
+			err := cmd.Process.Signal(os.Interrupt)
+			if err != nil {
+				Crash(err)
+			}
 
+			err = cmd.Process.Signal(syscall.SIGINT)
+			if err != nil {
+				Crash(err)
+			}
+
+			err = cmd.Process.Kill()
+			if err != nil {
+				Crash(err)
+			}
+
+			if pgid, err := syscall.Getpgid(cmd.Process.Pid); err == nil {
+				syscall.Kill(-pgid, 15) // note the minus sign
+			} else {
+				Crash(err)
+			}
 		}
-		// "\033[35m", "Stop wait for kill", cmd.Process.Pid)
 	}()
 
 	go func() {
-		// "\033[35m", "Start scan", cmd.Process.Pid)
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
 			fmt.Println("\033[32m", scanner.Text())
 		}
 		stdinDone <- true
-		// "\033[35m", "Scan finished", cmd.Process.Pid)
 	}()
 
 	go func() {
-		// "\033[35m", "Start scan err", cmd.Process.Pid)
 		scannerErr := bufio.NewScanner(stderr)
 		for scannerErr.Scan() {
 			fmt.Println("\033[31m", scannerErr.Text())
 		}
 		stderrDone <- true
-		// "\033[35m", "Scan finished err", cmd.Process.Pid)
 	}()
 
-	// "\033[35m", "Before wait", cmd.Process.Pid)
 	cmd.Wait()
-
-	// "\033[35m", "After wait", cmd.Process.Pid)
 
 	<-stdinDone
 	<-stderrDone
 
-	// "\033[35m", "After std chs", cmd.Process.Pid)
 	select {
 	case stopSignal <- false:
 	default:

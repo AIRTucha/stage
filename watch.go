@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
+	"regexp"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -25,7 +27,8 @@ func handleChanges(
 				return
 			}
 			if event.Op&fsnotify.Write == fsnotify.Write {
-				fmt.Println("Detected change")
+
+				fmt.Println(event.Name)
 				select {
 				case stopSignal <- true:
 				default:
@@ -62,9 +65,52 @@ func createWatcher() *fsnotify.Watcher {
 func addToWatcher(watcher *fsnotify.Watcher, paths []string) {
 	for _, folderPath := range paths {
 		if err := watcher.Add(folderPath); err != nil {
-			Crashf("Can not watch %v due to %v", folderPath, err)
+			fmt.Printf("Can not watch %v due to %v", folderPath, err)
 		}
 	}
+}
+
+func filterSrc(paths []string, root string) []string {
+	var files []string
+	for _, file := range paths {
+		isFine, err := filepath.Match(filepath.Join(root, "src/**/*"), file)
+		if err != nil {
+			fmt.Println(err)
+		}
+		if isFine {
+			files = append(files, file)
+		}
+	}
+	return files
+}
+
+func print(strs []string) {
+	for _, str := range strs {
+		fmt.Println((str))
+	}
+}
+
+func globToRegexp(pattern string) string {
+	slashExp, _ := regexp.Compile("\\/")
+	doudbleStarExp, _ := regexp.Compile("\\*\\*\\/")
+	starExp, _ := regexp.Compile("\\*")
+	anyCharTemp, _ := regexp.Compile("\\!\\!\\!")
+
+	return anyCharTemp.ReplaceAllLiteralString(
+		starExp.ReplaceAllLiteralString(
+			slashExp.ReplaceAllLiteralString(
+				doudbleStarExp.ReplaceAllLiteralString(pattern, "!!!"),
+				"\\/",
+			),
+			"[a-zA-Z0-9_.-]*",
+		),
+		".*",
+	)
+}
+
+func match(pattern string, str string) bool {
+	globExp, _ := regexp.Compile(globToRegexp(pattern))
+	return globExp.MatchString(str)
 }
 
 func Watch(path string, stopPrev chan bool, onChange func(stopSignal chan bool)) {
@@ -75,16 +121,18 @@ func Watch(path string, stopPrev chan bool, onChange func(stopSignal chan bool))
 		watcher,
 		stopPrev,
 		func(stopSignal chan bool) {
-			// func() { stopSignal <- true }()
 			onChange(stopSignal)
 		},
 	)
 
 	addToWatcher(
 		watcher,
-		append(
-			GetAllSubFolders(path),
+		GetFoldersToWatch(
 			path,
+			func(str string) bool {
+				isValid := match(filepath.Join(path, "src/**/*"), str)
+				return isValid
+			},
 		),
 	)
 
