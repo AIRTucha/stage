@@ -78,6 +78,13 @@ func addToWatcher(watcher *fsnotify.Watcher, paths []string) {
 		}
 	}
 }
+func removeWatcher(watcher *fsnotify.Watcher, paths []string) {
+	for _, folderPath := range paths {
+		if err := watcher.Remove(folderPath); err != nil {
+			fmt.Printf("Can not watch %v due to %v", folderPath, err)
+		}
+	}
+}
 
 func filterSrc(paths []string, root string) []string {
 	var files []string
@@ -139,6 +146,13 @@ func Watch(path string, patterns []string, debounce int, stopPrev chan bool, ext
 		return findMatchAny(patterns, path, str)
 	}
 
+	foldersToWatch := GetFoldersToWatch(
+		path,
+		func(str string) bool {
+			isValid := matchPatterns(str)
+			return isValid
+		},
+	)
 	go handleChanges(
 		watcher,
 		stopPrev,
@@ -146,19 +160,22 @@ func Watch(path string, patterns []string, debounce int, stopPrev chan bool, ext
 		externalStopSignal,
 		matchPatterns,
 		func(stopSignal chan bool) {
+			removeWatcher(watcher, foldersToWatch)
+			foldersToWatch = GetFoldersToWatch(
+				path,
+				func(str string) bool {
+					isValid := matchPatterns(str)
+					return isValid
+				},
+			)
+			addToWatcher(watcher, foldersToWatch)
 			onChange(stopSignal)
 		},
 	)
 
 	addToWatcher(
 		watcher,
-		GetFoldersToWatch(
-			path,
-			func(str string) bool {
-				isValid := matchPatterns(str)
-				return isValid
-			},
-		),
+		foldersToWatch,
 	)
 
 	waitClosing()
