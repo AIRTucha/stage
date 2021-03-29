@@ -12,8 +12,9 @@ type StagesYaml = map[string]interface{}
 type BasicYaml = map[string]interface{}
 
 type Config struct {
-	watch  []string
-	engine string
+	watch    []string
+	engine   string
+	debounce int
 }
 
 type Actions = map[string]([]string)
@@ -53,7 +54,8 @@ var defaultConfig = Config{
 		"lib/**/*",
 		"app/**/*",
 	},
-	engine: "/bin/sh",
+	engine:   "/bin/sh",
+	debounce: 2000,
 }
 
 func parseStringArray(val interface{}) ([]string, error) {
@@ -93,12 +95,22 @@ func parseWatch(watchStr interface{}) []string {
 	}
 }
 
+func parseDebounce(debounceObj interface{}) int {
+	debounce, ok := debounceObj.(int)
+	if ok {
+		return debounce
+	} else {
+		return defaultConfig.debounce
+	}
+}
+
 func parseConfig(yamlData StagesYaml) Config {
 	configYaml, ok := yamlData["_config"].(map[interface{}]interface{})
 	if ok {
 		return Config{
-			watch:  parseWatch(configYaml["watch"]),
-			engine: parseEngine(configYaml["engine"]),
+			watch:    parseWatch(configYaml["watch"]),
+			engine:   parseEngine(configYaml["engine"]),
+			debounce: parseDebounce(configYaml["debounce"]),
 		}
 	} else {
 		return defaultConfig

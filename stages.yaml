@@ -2,6 +2,7 @@ _config:
   watch: 
     - '*.go'
     - 'src/*'
+  debounce: 1000
   engine: '/bin/bash'
 test:
   - echo "ok"

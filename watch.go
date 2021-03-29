@@ -17,9 +17,12 @@ func waitClosing() {
 func handleChanges(
 	watcher *fsnotify.Watcher,
 	initialStopSignal chan bool,
+	debounce int,
 	externalStopSignal chan bool,
+	validatePath func(string) bool,
 	onChange func(stopSignal chan bool),
 ) {
+	var timer *time.Timer
 	stopSignal := initialStopSignal
 	for {
 		select {
@@ -32,18 +35,21 @@ func handleChanges(
 			if !ok {
 				return
 			}
-			if event.Op&fsnotify.Write == fsnotify.Write {
+			fileName := event.Name
+			if event.Op&fsnotify.Write == fsnotify.Write && validatePath(fileName) {
 				select {
 				case stopSignal <- true:
 				default:
 				}
-
+				fmt.Println("\033[36m", fmt.Sprintf("File is %v canged.", GetRelativeToRoot(fileName)))
 				go func() {
-					time.AfterFunc(time.Second/4, func() {
+					if timer != nil {
+						timer.Stop()
+					}
+					timer = time.AfterFunc(time.Millisecond*time.Duration(debounce), func() {
 						stopSignal = make(chan bool)
 						onChange(stopSignal)
 					})
-
 				}()
 			}
 		case err, ok := <-watcher.Errors:
@@ -125,14 +131,20 @@ func findMatchAny(patterns []string, rootPath string, path string) bool {
 	return false
 }
 
-func Watch(path string, patterns []string, stopPrev chan bool, externalStopSignal chan bool, onChange func(chan bool)) {
+func Watch(path string, patterns []string, debounce int, stopPrev chan bool, externalStopSignal chan bool, onChange func(chan bool)) {
 	watcher := createWatcher()
 	defer watcher.Close()
+
+	matchPatterns := func(str string) bool {
+		return findMatchAny(patterns, path, str)
+	}
 
 	go handleChanges(
 		watcher,
 		stopPrev,
+		debounce,
 		externalStopSignal,
+		matchPatterns,
 		func(stopSignal chan bool) {
 			onChange(stopSignal)
 		},
@@ -143,7 +155,7 @@ func Watch(path string, patterns []string, stopPrev chan bool, externalStopSigna
 		GetFoldersToWatch(
 			path,
 			func(str string) bool {
-				isValid := findMatchAny(patterns, path, str)
+				isValid := matchPatterns(str)
 				return isValid
 			},
 		),

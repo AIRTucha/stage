@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
 // colorReset := "\033[0m"
@@ -108,7 +109,7 @@ func run(executor string, stringCmd string, stopSignal chan bool) RunningStatus 
 }
 
 func main() {
-	fmt.Println("\033[36m", "[stage] Starting version 0.0.4")
+	fmt.Println("\033[36m", "[stage] Starting version 0.0.5")
 
 	rootPath := GetCurrentPath()
 	arg := getArgs()
@@ -117,7 +118,7 @@ func main() {
 	config, actions := ReadYaml(
 		GetConfigPath(rootPath),
 	)
-	fmt.Println(config)
+
 	runAll := func(stopSignal chan bool) {
 		for i, cmd := range actions[arg] {
 			switch executionStatus := run(config.engine, cmd, stopSignal); executionStatus {
@@ -142,7 +143,7 @@ func main() {
 	if isWatch {
 		waitGroup.Add(1)
 		fmt.Println("\033[36m", "[stage] Start watching for changes...")
-		go Watch(rootPath, config.watch, stopSignal, externalStopSignal, runAll)
+		go Watch(rootPath, config.watch, config.debounce, stopSignal, externalStopSignal, runAll)
 	}
 
 	interruptSignal := make(chan os.Signal, 1)
@@ -158,7 +159,9 @@ func main() {
 		default:
 		}
 		if isWatch {
-			waitGroup.Done()
+			time.AfterFunc(time.Second, func() {
+				waitGroup.Done()
+			})
 		}
 	}()
 

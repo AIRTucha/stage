@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 )
 
 func GetCurrentPath() string {
@@ -74,4 +75,14 @@ func GetFoldersToWatch(path string, matchPattern func(string) bool) []string {
 		}
 	}
 	return selectedPaths
+}
+
+func GetRelativeToRoot(path string) string {
+	slashExp, _ := regexp.Compile("\\/")
+	rootPath := GetCurrentPath()
+	rootExp, _ := regexp.Compile(slashExp.ReplaceAllLiteralString(
+		rootPath,
+		"\\/",
+	))
+	return rootExp.ReplaceAllLiteralString(path, ".")
 }
