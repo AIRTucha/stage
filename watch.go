@@ -17,18 +17,22 @@ func waitClosing() {
 func handleChanges(
 	watcher *fsnotify.Watcher,
 	initialStopSignal chan bool,
+	externalStopSignal chan bool,
 	onChange func(stopSignal chan bool),
 ) {
 	stopSignal := initialStopSignal
 	for {
 		select {
+		case stop := <-externalStopSignal:
+			if stop {
+				fmt.Println("\033[36m", "\n [stage] Stop process...")
+				stopSignal <- true
+			}
 		case event, ok := <-watcher.Events:
 			if !ok {
 				return
 			}
 			if event.Op&fsnotify.Write == fsnotify.Write {
-
-				fmt.Println(event.Name)
 				select {
 				case stopSignal <- true:
 				default:
@@ -36,7 +40,6 @@ func handleChanges(
 
 				go func() {
 					time.AfterFunc(time.Second/4, func() {
-
 						stopSignal = make(chan bool)
 						onChange(stopSignal)
 					})
@@ -113,13 +116,23 @@ func match(pattern string, str string) bool {
 	return globExp.MatchString(str)
 }
 
-func Watch(path string, stopPrev chan bool, onChange func(stopSignal chan bool)) {
+func findMatchAny(patterns []string, rootPath string, path string) bool {
+	for _, pattern := range patterns {
+		if match(filepath.Join(rootPath, pattern), path) {
+			return true
+		}
+	}
+	return false
+}
+
+func Watch(path string, patterns []string, stopPrev chan bool, externalStopSignal chan bool, onChange func(chan bool)) {
 	watcher := createWatcher()
 	defer watcher.Close()
 
 	go handleChanges(
 		watcher,
 		stopPrev,
+		externalStopSignal,
 		func(stopSignal chan bool) {
 			onChange(stopSignal)
 		},
@@ -130,7 +143,7 @@ func Watch(path string, stopPrev chan bool, onChange func(stopSignal chan bool))
 		GetFoldersToWatch(
 			path,
 			func(str string) bool {
-				isValid := match(filepath.Join(path, "src/**/*"), str)
+				isValid := findMatchAny(patterns, path, str)
 				return isValid
 			},
 		),
