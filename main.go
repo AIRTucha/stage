@@ -109,7 +109,7 @@ func run(executor string, stringCmd string, stopSignal chan bool) RunningStatus 
 }
 
 func main() {
-	fmt.Println("\033[36m", "[stage] Starting version 0.0.5")
+	fmt.Println("\033[36m", "[stage] Starting version 0.0.6")
 
 	rootPath := GetCurrentPath()
 	arg := getArgs()
@@ -159,7 +159,7 @@ func main() {
 		default:
 		}
 		if isWatch {
-			time.AfterFunc(time.Second, func() {
+			time.AfterFunc(time.Second*2, func() {
 				waitGroup.Done()
 			})
 		}
