@@ -67,12 +67,12 @@ func parseStringArray(val interface{}) ([]string, error) {
 			if ok {
 				strings = append(strings, str)
 			} else {
-				return nil, fmt.Errorf("Bad formatting at action number \"%v\"", i)
+				return nil, fmt.Errorf(`bad formatting at action number '%v'`, i)
 			}
 		}
 		return strings, nil
 	} else {
-		return nil, fmt.Errorf("Bad formatting.")
+		return nil, fmt.Errorf("bad formatting")
 	}
 }
 

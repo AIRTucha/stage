@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -87,16 +88,16 @@ func removeWatcher(watcher *fsnotify.Watcher, paths []string) {
 }
 
 func globToRegexp(pattern string) string {
-	slashExp, _ := regexp.Compile("\\/")
-	doudbleStarExp, _ := regexp.Compile("\\*\\*\\/")
-	starExp, _ := regexp.Compile("\\*")
-	anyCharTemp, _ := regexp.Compile("\\!\\!\\!")
+	slashExp, _ := regexp.Compile(`\/`)
+	doudbleStarExp, _ := regexp.Compile(`\*\*\/`)
+	starExp, _ := regexp.Compile(`\*`)
+	anyCharTemp, _ := regexp.Compile(`\!\!\!`)
 
 	return anyCharTemp.ReplaceAllLiteralString(
 		starExp.ReplaceAllLiteralString(
 			slashExp.ReplaceAllLiteralString(
 				doudbleStarExp.ReplaceAllLiteralString(pattern, "!!!"),
-				"\\/",
+				`\/`,
 			),
 			"[a-zA-Z0-9_.-]*",
 		),
@@ -118,7 +119,7 @@ func findMatchAny(patterns []string, rootPath string, path string) bool {
 	return false
 }
 
-func Watch(path string, patterns []string, debounce int, stopPrev chan bool, externalStopSignal chan bool, onChange func(chan bool)) {
+func watch(path string, patterns []string, debounce int, stopPrev chan bool, externalStopSignal chan bool, onChange func(chan bool)) {
 	watcher := createWatcher()
 	defer watcher.Close()
 
@@ -159,4 +160,27 @@ func Watch(path string, patterns []string, debounce int, stopPrev chan bool, ext
 	)
 
 	waitClosing()
+}
+
+func Watch(
+	isWatch bool,
+	waitGroup *sync.WaitGroup,
+	config Config,
+	rootPath string,
+	stopSignal chan bool,
+	externalStopSignal chan bool,
+	runAll func(chan bool),
+) {
+	if isWatch {
+		waitGroup.Add(1)
+		PrintInfo("Start watching for changes...")
+		watch(
+			rootPath,
+			config.watch,
+			config.debounce,
+			stopSignal,
+			externalStopSignal,
+			runAll,
+		)
+	}
 }
