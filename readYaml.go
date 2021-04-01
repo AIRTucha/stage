@@ -90,7 +90,7 @@ func parseWatch(watchStr interface{}) []string {
 	if err == nil {
 		return watchPattern
 	} else {
-		fmt.Println("\033[31m", fmt.Sprintf("Watch pattern parsing error due to '%v'", err))
+		PrintError("Watch pattern parsing error due to '%v'", err)
 		return defaultConfig.watch
 	}
 }
@@ -126,7 +126,7 @@ func parseActions(yamlData StagesYaml) Actions {
 		if err == nil {
 			actions[key] = steps
 		} else {
-			fmt.Println("\033[31m", fmt.Sprintf("Action \"key\" parsing error due: ", err.Error()))
+			PrintError("Action \"key\" parsing error due: %v", err.Error())
 		}
 	}
 

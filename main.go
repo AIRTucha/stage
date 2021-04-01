@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -10,16 +9,6 @@ import (
 	"syscall"
 	"time"
 )
-
-// colorReset := "\033[0m"
-
-// colorRed := "\033[31m"
-// colorGreen := "\033[32m"
-// colorYellow := "\033[33m"
-// colorBlue := "\033[34m"
-// colorPurple := "\033[35m"
-// colorCyan := "\033[36m"
-// colorWhite := "\033[37m"
 
 type RunningStatus int
 
@@ -53,7 +42,8 @@ func run(executor string, stringCmd string, stopSignal chan bool) RunningStatus 
 	stdout, _ := cmd.StdoutPipe()
 	stderr, _ := cmd.StderrPipe()
 
-	fmt.Println("\033[34m", fmt.Sprintf("> %s", stringCmd))
+	PrintAction(stringCmd)
+
 	cmd.Start()
 
 	go func() {
@@ -87,14 +77,14 @@ func run(executor string, stringCmd string, stopSignal chan bool) RunningStatus 
 	go func() {
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
-			fmt.Println("\033[32m", scanner.Text())
+			PrintStdIn(scanner.Text())
 		}
 	}()
 
 	go func() {
 		scannerErr := bufio.NewScanner(stderr)
 		for scannerErr.Scan() {
-			fmt.Println("\033[31m", scannerErr.Text())
+			PrintStrErr(scannerErr.Text())
 			executionStatus = failure
 		}
 	}()
@@ -109,7 +99,7 @@ func run(executor string, stringCmd string, stopSignal chan bool) RunningStatus 
 }
 
 func main() {
-	fmt.Println("\033[36m", "[stage] Starting version 0.0.6")
+	PrintInfo("Starting version 0.0.6")
 
 	rootPath := GetCurrentPath()
 	arg := getArgs()
@@ -123,9 +113,10 @@ func main() {
 		for i, cmd := range actions[arg] {
 			switch executionStatus := run(config.engine, cmd, stopSignal); executionStatus {
 			case failure:
-				fmt.Println(
-					"\033[33m",
-					fmt.Sprintf("Command '%v' is interrupted due to error at step %v", arg, i+1),
+				PrintError(
+					"Command '%v' is interrupted due to error at step %v",
+					arg,
+					i+1,
 				)
 				return
 			case stopped:
@@ -134,7 +125,7 @@ func main() {
 			}
 		}
 		if isWatch {
-			fmt.Println("\033[36m", "[stage] Watching for new changes...")
+			PrintInfo("Watching for new changes...")
 		}
 	}
 	var waitGroup sync.WaitGroup
@@ -142,7 +133,7 @@ func main() {
 	externalStopSignal := make(chan bool)
 	if isWatch {
 		waitGroup.Add(1)
-		fmt.Println("\033[36m", "[stage] Start watching for changes...")
+		PrintInfo("Start watching for changes...")
 		go Watch(rootPath, config.watch, config.debounce, stopSignal, externalStopSignal, runAll)
 	}
 
@@ -168,4 +159,6 @@ func main() {
 	runAll(stopSignal)
 
 	waitGroup.Wait()
+
+	ResetInputStyle()
 }

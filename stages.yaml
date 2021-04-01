@@ -18,5 +18,5 @@ build-run:
 install:
   - go install .
 export:
-  - PATH=$PATH:/Users/alex/go/bin
+  - PATH=$PATH:/Users/alextukalo/go/bin/
   

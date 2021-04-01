@@ -28,7 +28,7 @@ func handleChanges(
 		select {
 		case stop := <-externalStopSignal:
 			if stop {
-				fmt.Println("\033[36m", "\n [stage] Stop process...")
+				PrintInfo("Stop process...")
 				stopSignal <- true
 			}
 		case event, ok := <-watcher.Events:
@@ -41,7 +41,7 @@ func handleChanges(
 				case stopSignal <- true:
 				default:
 				}
-				fmt.Println("\033[36m", fmt.Sprintf("File is %v canged.", GetRelativeToRoot(fileName)))
+				PrintInfo("File is %v canged.", GetRelativeToRoot(fileName))
 				go func() {
 					if timer != nil {
 						timer.Stop()
@@ -83,26 +83,6 @@ func removeWatcher(watcher *fsnotify.Watcher, paths []string) {
 		if err := watcher.Remove(folderPath); err != nil {
 			fmt.Printf("Can not watch %v due to %v", folderPath, err)
 		}
-	}
-}
-
-func filterSrc(paths []string, root string) []string {
-	var files []string
-	for _, file := range paths {
-		isFine, err := filepath.Match(filepath.Join(root, "src/**/*"), file)
-		if err != nil {
-			fmt.Println(err)
-		}
-		if isFine {
-			files = append(files, file)
-		}
-	}
-	return files
-}
-
-func print(strs []string) {
-	for _, str := range strs {
-		fmt.Println((str))
 	}
 }
 
