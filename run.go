@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"io"
 	"os"
 	"os/exec"
 	"syscall"
@@ -14,6 +15,55 @@ const (
 	stopped RunningStatus = 1
 	failure RunningStatus = 2
 )
+
+func printFromReader(
+	reader *io.ReadCloser,
+	print func(string),
+	status *RunningStatus,
+) {
+	scannerErr := bufio.NewScanner(*reader)
+	for scannerErr.Scan() {
+		print(scannerErr.Text())
+		if status != nil {
+			*status = failure
+		}
+	}
+}
+
+func interruptProcess(cmd *exec.Cmd) {
+	err := cmd.Process.Signal(os.Interrupt)
+	if err != nil {
+		Crash(err)
+	}
+
+	err = cmd.Process.Signal(syscall.SIGINT)
+	if err != nil {
+		Crash(err)
+	}
+
+	err = cmd.Process.Kill()
+	if err != nil {
+		Crash(err)
+	}
+
+	if pgid, err := syscall.Getpgid(cmd.Process.Pid); err == nil {
+		syscall.Kill(-pgid, 15)
+	} else {
+		Crash(err)
+	}
+}
+
+func listenForStop(
+	cmd *exec.Cmd,
+	stopSignal chan bool,
+	status *RunningStatus,
+) {
+	isStop := <-stopSignal
+	if isStop {
+		*status = stopped
+		interruptProcess(cmd)
+	}
+}
 
 func Run(executor string, stringCmd string, stopSignal chan bool) RunningStatus {
 	executionStatus := success
@@ -28,55 +78,15 @@ func Run(executor string, stringCmd string, stopSignal chan bool) RunningStatus 
 
 	cmd.Start()
 
-	go func() {
-		isStop := <-stopSignal
-		if isStop {
-			executionStatus = stopped
+	go listenForStop(cmd, stopSignal, &executionStatus)
 
-			err := cmd.Process.Signal(os.Interrupt)
-			if err != nil {
-				Crash(err)
-			}
-
-			err = cmd.Process.Signal(syscall.SIGINT)
-			if err != nil {
-				Crash(err)
-			}
-
-			err = cmd.Process.Kill()
-			if err != nil {
-				Crash(err)
-			}
-
-			if pgid, err := syscall.Getpgid(cmd.Process.Pid); err == nil {
-				syscall.Kill(-pgid, 15)
-			} else {
-				Crash(err)
-			}
-		}
-	}()
-
-	go func() {
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			PrintStdIn(scanner.Text())
-		}
-	}()
-
-	go func() {
-		scannerErr := bufio.NewScanner(stderr)
-		for scannerErr.Scan() {
-			PrintStrErr(scannerErr.Text())
-			executionStatus = failure
-		}
-	}()
+	go printFromReader(&stdout, PrintStdIn, nil)
+	go printFromReader(&stderr, PrintStrErr, &executionStatus)
 
 	cmd.Wait()
 
-	select {
-	case stopSignal <- false:
-	default:
-	}
+	Notify(stopSignal, false)
+
 	return executionStatus
 }
 

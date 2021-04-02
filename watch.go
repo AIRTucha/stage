@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sync"
-	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -23,14 +22,14 @@ func handleChanges(
 	validatePath func(string) bool,
 	onChange func(stopSignal chan bool),
 ) {
-	var timer *time.Timer
+	debouncer := NewDebounce(debounce)
 	stopSignal := initialStopSignal
 	for {
 		select {
 		case stop := <-externalStopSignal:
 			if stop {
 				PrintInfo("Stop process...")
-				stopSignal <- true
+				Notify(stopSignal, true)
 			}
 		case event, ok := <-watcher.Events:
 			if !ok {
@@ -38,19 +37,15 @@ func handleChanges(
 			}
 			fileName := event.Name
 			if event.Op&fsnotify.Write == fsnotify.Write && validatePath(fileName) {
-				select {
-				case stopSignal <- true:
-				default:
-				}
+				Notify(stopSignal, true)
 				PrintInfo("File is %v canged.", GetRelativeToRoot(fileName))
 				go func() {
-					if timer != nil {
-						timer.Stop()
-					}
-					timer = time.AfterFunc(time.Millisecond*time.Duration(debounce), func() {
-						stopSignal = make(chan bool)
-						onChange(stopSignal)
-					})
+					debouncer.Run(
+						func() {
+							stopSignal = make(chan bool)
+							onChange(stopSignal)
+						},
+					)
 				}()
 			}
 		case err, ok := <-watcher.Errors:

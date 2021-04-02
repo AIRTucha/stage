@@ -13,16 +13,6 @@ func waitInterupt() {
 	<-interruptSignal
 }
 
-func notify(
-	boolChan chan bool,
-	boolVal bool,
-) {
-	select {
-	case boolChan <- boolVal:
-	default:
-	}
-}
-
 func stopWaiting(
 	isWatch bool,
 	waitGroup *sync.WaitGroup,
@@ -41,7 +31,7 @@ func HandleInterupt(
 	waitGroup *sync.WaitGroup,
 ) {
 	waitInterupt()
-	notify(externalStopSignal, true)
-	notify(stopSignal, true)
+	Notify(externalStopSignal, true)
+	Notify(stopSignal, true)
 	stopWaiting(isWatch, waitGroup)
 }

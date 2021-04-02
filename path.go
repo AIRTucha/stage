@@ -29,7 +29,7 @@ func selectDirs(info []fs.FileInfo) []string {
 func getNestedFolders(paths []string) []string {
 	var nestedPath []string
 	for _, path := range paths {
-		nestedPath = append(nestedPath, GetAllSubFolders(path)...)
+		nestedPath = append(nestedPath, getAllSubFolders(path)...)
 	}
 	return nestedPath
 }
@@ -42,7 +42,7 @@ func fullfilPaths(rootPath string, content []string) []string {
 	return fulFilledContent
 }
 
-func GetAllSubFolders(path string) []string {
+func getAllSubFolders(path string) []string {
 	fileInfo, _ := ioutil.ReadDir(path)
 
 	return append(
@@ -66,7 +66,7 @@ func containFileToWatch(root string, paths []fs.FileInfo, matchPattern func(stri
 }
 
 func GetFoldersToWatch(path string, matchPattern func(string) bool) []string {
-	allPaths := GetAllSubFolders(path)
+	allPaths := getAllSubFolders(path)
 	var selectedPaths []string
 	for _, folderPath := range allPaths {
 		dirContent, _ := ioutil.ReadDir(folderPath)
@@ -78,11 +78,11 @@ func GetFoldersToWatch(path string, matchPattern func(string) bool) []string {
 }
 
 func GetRelativeToRoot(path string) string {
-	slashExp, _ := regexp.Compile("\\/")
+	slashExp, _ := regexp.Compile(`\/`)
 	rootPath := GetCurrentPath()
 	rootExp, _ := regexp.Compile(slashExp.ReplaceAllLiteralString(
 		rootPath,
-		"\\/",
+		`\/`,
 	))
 	return rootExp.ReplaceAllLiteralString(path, ".")
 }
