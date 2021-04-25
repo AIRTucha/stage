@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 )
 
@@ -74,8 +75,6 @@ func Run(executor string, stringCmd string, stopSignal chan bool) RunningStatus 
 	stdout, _ := cmd.StdoutPipe()
 	stderr, _ := cmd.StderrPipe()
 
-	PrintAction(stringCmd)
-
 	cmd.Start()
 
 	go listenForStop(cmd, stopSignal, &executionStatus)
@@ -97,19 +96,21 @@ func RunAll(
 	actions map[string][]string,
 ) func(stopSignal chan bool) {
 	return func(stopSignal chan bool) {
-		for i, cmd := range actions[arg] {
-			switch executionStatus := Run(config.engine, cmd, stopSignal); executionStatus {
-			case failure:
-				PrintError(
-					"Command '%v' is interrupted due to error at step %v",
-					arg,
-					i+1,
-				)
-				return
-			case stopped:
-				return
-			case success:
-			}
+		for _, cmdStr := range actions[arg] {
+			PrintAction(cmdStr)
+		}
+
+		cmd := strings.Join(actions[arg], "; ")
+		switch executionStatus := Run(config.engine, cmd, stopSignal); executionStatus {
+		case failure:
+			PrintError(
+				"Command '%v' is interrupted due to error",
+				arg,
+			)
+			return
+		case stopped:
+			return
+		case success:
 		}
 		PrintInfo("Action '%v' is finished.", arg)
 		if isWatch {
