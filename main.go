@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	PrintInfo("Starting version 0.0.6")
+	PrintInfo("Starting version 0.0.7")
 
 	var waitGroup sync.WaitGroup
 

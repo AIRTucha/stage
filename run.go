@@ -107,6 +107,9 @@ func RunAll(
 				"Command '%v' is interrupted due to error",
 				arg,
 			)
+			if isWatch == false {
+				os.Exit(1)
+			}
 			return
 		case stopped:
 			return
