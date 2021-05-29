@@ -82,7 +82,16 @@ func Run(executor string, stringCmd string, stopSignal chan bool) RunningStatus 
 	go printFromReader(&stdout, PrintStdIn, nil)
 	go printFromReader(&stderr, PrintStrErr, &executionStatus)
 
-	cmd.Wait()
+	err := cmd.Wait()
+
+	if err != nil {
+		PrintError(
+			"Error during execution of %v: %v",
+			stringCmd,
+			err,
+		)
+		executionStatus = failure
+	}
 
 	Notify(stopSignal, false)
 
