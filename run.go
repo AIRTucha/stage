@@ -80,7 +80,7 @@ func Run(executor string, stringCmd string, stopSignal chan bool) RunningStatus 
 	go listenForStop(cmd, stopSignal, &executionStatus)
 
 	go printFromReader(&stdout, PrintStdIn, nil)
-	go printFromReader(&stderr, PrintStrErr, &executionStatus)
+	go printFromReader(&stderr, PrintStrErr, nil)
 
 	err := cmd.Wait()
 
